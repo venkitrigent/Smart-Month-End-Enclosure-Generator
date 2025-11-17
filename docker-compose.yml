@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+    depends_on:
+      - orchestrator
+
+  orchestrator:
+    build: ./agents/orchestrator
+    ports:
+      - "8000:8000"
+    environment:
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - CLASSIFIER_URL=http://classifier:8001
+      - EXTRACTOR_URL=http://extractor:8002
+      - CHECKLIST_URL=http://checklist:8003
+      - ANALYTICS_URL=http://analytics:8004
+      - CHATBOT_URL=http://chatbot:8005
+
+  classifier:
+    build: ./agents/classifier
+    ports:
+      - "8001:8001"
+
+  extractor:
+    build: ./agents/extractor
+    ports:
+      - "8002:8002"
+
+  checklist:
+    build: ./agents/checklist
+    ports:
+      - "8003:8003"
+
+  analytics:
+    build: ./agents/analytics
+    ports:
+      - "8004:8004"
+
+  chatbot:
+    build: ./agents/chatbot
+    ports:
+      - "8005:8005"
+    environment:
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}

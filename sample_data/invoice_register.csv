@@ -1,0 +1,9 @@
+Invoice Number,Date,Vendor,Item,Price,Tax,Amount,Status
+INV-001,2024-11-01,ABC Corp,Office Supplies,1000.00,100.00,1100.00,Paid
+INV-002,2024-11-03,XYZ Ltd,Software License,5000.00,500.00,5500.00,Paid
+INV-003,2024-11-05,Tech Services,Consulting,3000.00,300.00,3300.00,Pending
+INV-004,2024-11-08,Office Depot,Furniture,2500.00,250.00,2750.00,Paid
+INV-005,2024-11-10,Cloud Provider,Hosting,800.00,80.00,880.00,Paid
+INV-006,2024-11-12,Marketing Co,Advertising,4000.00,400.00,4400.00,Pending
+INV-007,2024-11-15,Legal Services,Consultation,2000.00,200.00,2200.00,Paid
+INV-008,2024-11-18,Utilities Inc,Electricity,1200.00,120.00,1320.00,Paid

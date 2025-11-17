@@ -1,0 +1,11 @@
+Date,Description,Type,Amount,Balance,Account Number,Transaction ID
+2024-11-01,Opening Balance,Credit,50000.00,50000.00,ACC-001,TXN-001
+2024-11-02,Vendor Payment,Debit,-5000.00,45000.00,ACC-001,TXN-002
+2024-11-03,Customer Receipt,Credit,12000.00,57000.00,ACC-001,TXN-003
+2024-11-05,Salary Payment,Debit,-25000.00,32000.00,ACC-001,TXN-004
+2024-11-08,Service Income,Credit,8500.00,40500.00,ACC-001,TXN-005
+2024-11-10,Rent Payment,Debit,-3000.00,37500.00,ACC-001,TXN-006
+2024-11-12,Customer Receipt,Credit,15000.00,52500.00,ACC-001,TXN-007
+2024-11-15,Utility Bill,Debit,-1200.00,51300.00,ACC-001,TXN-008
+2024-11-18,Vendor Payment,Debit,-7500.00,43800.00,ACC-001,TXN-009
+2024-11-20,Customer Receipt,Credit,9800.00,53600.00,ACC-001,TXN-010
