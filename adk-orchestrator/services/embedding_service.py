@@ -1,46 +1,72 @@
 """
 Embedding service for generating and managing embeddings
+Uses Vertex AI Text Embeddings (Google Cloud native)
 """
 
 import os
 from typing import List, Dict, Any
 import uuid
-from sentence_transformers import SentenceTransformer
+from vertexai.language_models import TextEmbeddingModel
 
 
 class EmbeddingService:
-    """Handles embedding generation for RAG"""
+    """Handles embedding generation for RAG using Vertex AI"""
     
     def __init__(self):
-        # Use a lightweight model for fast inference
-        self.model_name = os.getenv('EMBEDDING_MODEL', 'all-MiniLM-L6-v2')
+        # Use Vertex AI text embedding model (Google Cloud native)
+        # Available models:
+        # - textembedding-gecko@003 (768 dimensions, multilingual)
+        # - textembedding-gecko@002 (768 dimensions)
+        # - textembedding-gecko@001 (768 dimensions)
+        self.model_name = os.getenv('VERTEX_EMBEDDING_MODEL', 'textembedding-gecko@003')
         self.model = None
+        self.embedding_dimension = 768  # Gecko models use 768 dimensions
         self._load_model()
     
     def _load_model(self):
-        """Lazy load the embedding model"""
+        """Lazy load the Vertex AI embedding model"""
         try:
-            self.model = SentenceTransformer(self.model_name)
-            print(f"Loaded embedding model: {self.model_name}")
+            self.model = TextEmbeddingModel.from_pretrained(self.model_name)
+            print(f"✅ Loaded Vertex AI embedding model: {self.model_name}")
         except Exception as e:
-            print(f"Error loading embedding model: {e}")
+            print(f"⚠️ Error loading Vertex AI embedding model: {e}")
+            print("Falling back to zero embeddings")
             self.model = None
     
     def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for a list of texts"""
+        """
+        Generate embeddings for a list of texts using Vertex AI
+        
+        Args:
+            texts: List of text strings to embed
+            
+        Returns:
+            List of embedding vectors (768 dimensions each)
+        """
         if not self.model:
             self._load_model()
         
         if not self.model:
-            # Return empty embeddings if model failed to load
-            return [[0.0] * 384 for _ in texts]
+            # Return zero embeddings if model failed to load
+            print("⚠️ Model not available, returning zero embeddings")
+            return [[0.0] * self.embedding_dimension for _ in texts]
         
         try:
-            embeddings = self.model.encode(texts, convert_to_numpy=True)
-            return embeddings.tolist()
+            # Vertex AI supports batch embedding
+            # Split into batches of 5 (API limit)
+            batch_size = 5
+            all_embeddings = []
+            
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i + batch_size]
+                embeddings = self.model.get_embeddings(batch)
+                all_embeddings.extend([emb.values for emb in embeddings])
+            
+            return all_embeddings
         except Exception as e:
-            print(f"Error generating embeddings: {e}")
-            return [[0.0] * 384 for _ in texts]
+            print(f"⚠️ Error generating embeddings: {e}")
+            # Return zero embeddings as fallback
+            return [[0.0] * self.embedding_dimension for _ in texts]
     
     def create_chunks_with_embeddings(self, document_id: str, rows: List[Dict[str, Any]], 
                                      columns: List[str]) -> List[Dict[str, Any]]:

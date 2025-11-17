@@ -16,9 +16,10 @@ firebase-admin==6.2.0
 # Azure OpenAI
 openai>=1.0.0
 
-# ML and Embeddings
-sentence-transformers==2.2.2
-torch==2.1.0
+# Vertex AI for Embeddings (Google Cloud native)
+google-cloud-aiplatform>=1.38.0
+
+# Data Processing
 numpy==1.24.3
 
 # Data Processing
