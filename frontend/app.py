@@ -9,6 +9,7 @@ import os
 
 # Configuration
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+API_KEY = os.getenv("API_KEY", "")
 FIREBASE_CONFIG = {
     "apiKey": os.getenv("FIREBASE_API_KEY", ""),
     "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
@@ -43,9 +44,9 @@ def make_request(method, endpoint, **kwargs):
     """Make authenticated API request"""
     headers = kwargs.pop('headers', {})
     
-    # Add authentication
-    if st.session_state.auth_token:
-        headers['Authorization'] = f"Bearer {st.session_state.auth_token}"
+    # Add API key authentication (backend expects X-API-Key header)
+    if API_KEY:
+        headers['X-API-Key'] = API_KEY
     
     url = f"{BACKEND_URL}{endpoint}"
     
@@ -64,15 +65,11 @@ def make_request(method, endpoint, **kwargs):
 
 # Authentication functions
 def sign_in_with_email_password(email, password):
-    """Sign in with Firebase (simulated - use Firebase REST API in production)"""
-    # For development: use API key authentication
-    api_key = "demo-key-12345"
-    
-    # Test connection
+    """Sign in with email/password (development mode)"""
+    # Test connection to backend
     response = make_request("GET", "/health")
     if response and response.status_code == 200:
         st.session_state.authenticated = True
-        st.session_state.auth_token = api_key
         st.session_state.user_email = email
         st.session_state.user_id = email.split('@')[0]
         return True
