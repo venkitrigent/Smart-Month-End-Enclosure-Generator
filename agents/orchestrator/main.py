@@ -188,9 +188,14 @@ QUALITY STANDARDS:
     tools=[orchestrate_document_processing]
 )
 
-# Create FastAPI app with ADK
-AGENT_DIR = Path(__file__).parent
-app = get_fast_api_app(agents_dir=str(AGENT_DIR), web=False)
+# Create FastAPI app
+# Note: We use a simple FastAPI app instead of get_fast_api_app() 
+# because the orchestrator mainly routes to other agents via HTTP
+app = FastAPI(
+    title="Orchestrator Agent",
+    description="Master coordinator for month-end close multi-agent system",
+    version="1.0.0"
+)
 
 @app.post("/upload")
 async def upload_single(
