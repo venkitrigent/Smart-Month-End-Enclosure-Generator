@@ -8,7 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools import Tool
 import google.auth
 from typing import List, Dict, Any
 
@@ -30,7 +29,6 @@ os.environ.setdefault("GOOGLE_CLOUD_LOCATION", os.getenv("GCP_REGION", "us-centr
 model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-exp")
 
 # Tool: Classify Document
-@Tool
 def classify_document(filename: str, sample_data: str = None) -> dict:
     """
     Classify uploaded financial document using Azure OpenAI.
@@ -70,7 +68,6 @@ def classify_document(filename: str, sample_data: str = None) -> dict:
 
 
 # Tool: Extract CSV Data
-@Tool
 def extract_csv_data(file_content: str, doc_type: str, document_id: str = None) -> dict:
     """
     Extract and parse CSV data with column-aware chunking.
@@ -123,7 +120,6 @@ def extract_csv_data(file_content: str, doc_type: str, document_id: str = None) 
 
 
 # Tool: Check Completion Status
-@Tool
 def check_checklist_status(user_id: str, doc_type: str = None) -> dict:
     """
     Update and check month-end close checklist status.
@@ -174,7 +170,6 @@ def check_checklist_status(user_id: str, doc_type: str = None) -> dict:
 
 
 # Tool: Analyze Financial Data
-@Tool
 def analyze_financial_data(data: dict) -> dict:
     """
     Perform analytics on extracted financial data using Azure OpenAI.
@@ -229,7 +224,6 @@ def analyze_financial_data(data: dict) -> dict:
 
 
 # Tool: Search Documents with RAG
-@Tool
 def search_documents(query: str, user_id: str, top_k: int = 5) -> Dict[str, Any]:
     """
     Search uploaded documents using semantic search (RAG).
@@ -282,7 +276,6 @@ def search_documents(query: str, user_id: str, top_k: int = 5) -> Dict[str, Any]
 
 
 # Tool: Generate Report
-@Tool
 def generate_month_end_report(user_id: str) -> Dict[str, Any]:
     """
     Generate comprehensive month-end close report.
