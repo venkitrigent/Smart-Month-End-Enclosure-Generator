@@ -2,8 +2,4 @@ fastapi
 uvicorn[standard]
 python-multipart
 pydantic
-google-adk
-litellm
 httpx
-python-dotenv
-google-cloud-aiplatform

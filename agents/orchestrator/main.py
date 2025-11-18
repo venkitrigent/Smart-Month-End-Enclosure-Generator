@@ -1,40 +1,28 @@
 """
 Orchestrator Agent - Master Workflow Coordination Microservice
-Powered by Google ADK and Azure OpenAI
+Simple FastAPI orchestrator that routes requests to specialized agents
 """
 import os
-import sys
-from pathlib import Path
-from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form
 from pydantic import BaseModel
-from google.adk.agents import Agent
-from google.adk.models.lite_llm import LiteLlm
-from google.adk.cli.fast_api import get_fast_api_app
 from typing import Dict, List
 import httpx
-import asyncio
 import uuid
 
-# Load environment variables
-load_dotenv()
-
-# Configure Azure OpenAI for LiteLLM
-if os.getenv("AZURE_OPENAI_API_KEY"):
-    os.environ["AZURE_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY")
-    os.environ["AZURE_API_BASE"] = os.getenv("AZURE_OPENAI_ENDPOINT")
-    os.environ["AZURE_API_VERSION"] = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    model_name = f"azure/{os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o')}"
-else:
-    model_name = f"vertex_ai/gemini-2.0-flash-exp"
-
-# Agent service URLs
+# Agent service URLs from environment
 CLASSIFIER_URL = os.getenv('CLASSIFIER_URL', 'http://localhost:8001')
 EXTRACTOR_URL = os.getenv('EXTRACTOR_URL', 'http://localhost:8002')
 CHECKLIST_URL = os.getenv('CHECKLIST_URL', 'http://localhost:8003')
 ANALYTICS_URL = os.getenv('ANALYTICS_URL', 'http://localhost:8004')
 CHATBOT_URL = os.getenv('CHATBOT_URL', 'http://localhost:8005')
 REPORT_URL = os.getenv('REPORT_URL', 'http://localhost:8006')
+
+# Create FastAPI app
+app = FastAPI(
+    title="Orchestrator Agent",
+    description="Master coordinator for month-end close multi-agent system",
+    version="1.0.0"
+)
 
 # Orchestration tool
 async def orchestrate_document_processing(
@@ -175,9 +163,7 @@ QUALITY STANDARDS:
     tools=[orchestrate_document_processing]
 )
 
-# Create FastAPI app with ADK
-AGENT_DIR = Path(__file__).parent
-app = get_fast_api_app(agents_dir=str(AGENT_DIR), web=False)
+# FastAPI app already created above
 
 @app.post("/process-upload")
 async def process_upload(

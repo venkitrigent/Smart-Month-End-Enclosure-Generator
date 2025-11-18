@@ -7,14 +7,25 @@ import uuid
 import json
 import os
 
-# Configuration
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
-API_KEY = os.getenv("API_KEY", "")
-FIREBASE_CONFIG = {
-    "apiKey": os.getenv("FIREBASE_API_KEY", ""),
-    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
-    "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
-}
+# Configuration - Read from Streamlit secrets or environment variables
+try:
+    # Try Streamlit secrets first (for Streamlit Community Cloud)
+    BACKEND_URL = st.secrets.get("BACKEND_URL", "http://localhost:8080")
+    API_KEY = st.secrets.get("API_KEY", "")
+    FIREBASE_CONFIG = {
+        "apiKey": st.secrets.get("FIREBASE_API_KEY", ""),
+        "authDomain": st.secrets.get("FIREBASE_AUTH_DOMAIN", ""),
+        "projectId": st.secrets.get("FIREBASE_PROJECT_ID", ""),
+    }
+except:
+    # Fallback to environment variables (for local development)
+    BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+    API_KEY = os.getenv("API_KEY", "")
+    FIREBASE_CONFIG = {
+        "apiKey": os.getenv("FIREBASE_API_KEY", ""),
+        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN", ""),
+        "projectId": os.getenv("FIREBASE_PROJECT_ID", ""),
+    }
 
 st.set_page_config(
     page_title="Smart Month-End Close",
