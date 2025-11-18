@@ -68,27 +68,73 @@ def answer_financial_question(question: str, user_id: str, session_id: str) -> D
         history = [{"role": msg.to_dict().get('role'), "content": msg.to_dict().get('content')} 
                    for msg in history_docs]
         
-        # Search for relevant context (call embedding service)
-        # For now, use a simplified approach
+        # Search for relevant context using BigQuery embeddings
         context = "No specific data context available. Please upload documents first."
         sources = []
         
-        # Try to get context from ADK orchestrator's search endpoint
         try:
-            async with httpx.AsyncClient() as client:
-                search_response = await client.post(
-                    f"{os.getenv('ORCHESTRATOR_URL', 'http://localhost:8080')}/search",
-                    params={"query": question, "user_id": user_id, "top_k": 3}
-                )
-                if search_response.status_code == 200:
-                    search_data = search_response.json()
-                    if search_data.get("results"):
-                        sources = search_data["results"]
-                        context = "\n\n".join([
-                            f"[Source {i+1}] {r.get('chunk_text', '')}"
-                            for i, r in enumerate(sources[:3])
-                        ])
-        except:
+            # Import embedding and storage services
+            sys.path.append(str(Path(__file__).parent.parent.parent / 'adk-orchestrator'))
+            from services.embedding_service import embedding_service
+            from google.cloud import bigquery
+            
+            # Generate query embedding
+            query_embedding = embedding_service.generate_embeddings([question])[0]
+            
+            # Search BigQuery for similar embeddings
+            bq_client = bigquery.Client(project=os.getenv('GOOGLE_CLOUD_PROJECT'))
+            
+            search_query = f"""
+            SELECT 
+                e.embedding_id,
+                e.document_id,
+                e.row_index,
+                e.chunk_text,
+                e.embedding,
+                d.filename,
+                d.doc_type
+            FROM `{os.getenv('GOOGLE_CLOUD_PROJECT')}.{os.getenv('BIGQUERY_DATASET', 'financial_close')}.embeddings` e
+            JOIN `{os.getenv('GOOGLE_CLOUD_PROJECT')}.{os.getenv('BIGQUERY_DATASET', 'financial_close')}.documents` d
+            ON e.document_id = d.document_id
+            WHERE d.user_id = '{user_id}'
+            LIMIT 100
+            """
+            
+            results = bq_client.query(search_query).result()
+            embeddings_data = [dict(row) for row in results]
+            
+            if embeddings_data:
+                # Calculate cosine similarity
+                similarities = []
+                for item in embeddings_data:
+                    embedding = item.get("embedding", [])
+                    if not embedding:
+                        continue
+                    
+                    # Cosine similarity
+                    dot_product = sum(a * b for a, b in zip(query_embedding, embedding))
+                    norm_a = sum(a * a for a in query_embedding) ** 0.5
+                    norm_b = sum(b * b for b in embedding) ** 0.5
+                    
+                    if norm_a > 0 and norm_b > 0:
+                        similarity = dot_product / (norm_a * norm_b)
+                        similarities.append({
+                            **item,
+                            "similarity": similarity,
+                            "score": similarity
+                        })
+                
+                # Sort by similarity
+                similarities.sort(key=lambda x: x["similarity"], reverse=True)
+                sources = similarities[:3]
+                
+                if sources:
+                    context = "\n\n".join([
+                        f"[Source {i+1} - {s.get('filename', 'N/A')}] {s.get('chunk_text', '')}"
+                        for i, s in enumerate(sources)
+                    ])
+        except Exception as e:
+            print(f"Error searching embeddings: {e}")
             pass
         
         # Generate response using Azure OpenAI

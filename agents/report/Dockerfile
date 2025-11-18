@@ -1,4 +1,4 @@
-# Classifier Agent Dockerfile
+# Report Composer Agent Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -10,14 +10,14 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
-COPY agents/classifier/requirements.txt .
+COPY agents/report/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy shared modules
 COPY shared/ /app/shared/
 
 # Copy agent code
-COPY agents/classifier/ /app/
+COPY agents/report/ /app/
 
 # Set environment variables
 ENV PORT=8080
