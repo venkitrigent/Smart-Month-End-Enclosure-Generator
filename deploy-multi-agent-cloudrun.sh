@@ -20,9 +20,12 @@ echo "  Project: $PROJECT_ID"
 echo "  Region: $REGION"
 echo ""
 
-# Load environment variables
+# Load environment variables (handle spaces around =)
 if [ -f "adk-orchestrator/.env" ]; then
-    export $(cat adk-orchestrator/.env | grep -v '^#' | xargs)
+    echo "Loading environment variables from .env..."
+    set -a
+    source <(cat adk-orchestrator/.env | grep -v '^#' | sed 's/ *= */=/g')
+    set +a
 fi
 
 # Function to deploy agent using --source
@@ -51,11 +54,7 @@ deploy_agent() {
         --set-env-vars VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL \
         --set-env-vars GEMINI_MODEL=$GEMINI_MODEL \
         --set-env-vars ENVIRONMENT=production \
-        --set-env-vars API_KEYS=$API_KEYS \
-        --set-env-vars AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY}" \
-        --set-env-vars AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT}" \
-        --set-env-vars AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME}" \
-        --set-env-vars AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION}"
+        --set-env-vars API_KEYS=$API_KEYS
     
     SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} \
         --region $REGION \
@@ -100,10 +99,6 @@ gcloud run deploy orchestrator-agent \
     --set-env-vars GEMINI_MODEL=$GEMINI_MODEL \
     --set-env-vars ENVIRONMENT=production \
     --set-env-vars API_KEYS=$API_KEYS \
-    --set-env-vars AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY}" \
-    --set-env-vars AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT}" \
-    --set-env-vars AZURE_OPENAI_DEPLOYMENT_NAME="${AZURE_OPENAI_DEPLOYMENT_NAME}" \
-    --set-env-vars AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION}" \
     --set-env-vars CLASSIFIER_URL=$CLASSIFIER_URL \
     --set-env-vars EXTRACTOR_URL=$EXTRACTOR_URL \
     --set-env-vars CHECKLIST_URL=$CHECKLIST_URL \

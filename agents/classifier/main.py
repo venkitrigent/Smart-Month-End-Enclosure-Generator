@@ -17,12 +17,9 @@ load_dotenv()
 
 # Configure Azure OpenAI for LiteLLM
 if os.getenv("AZURE_OPENAI_API_KEY"):
-    os.environ["AZURE_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY")
-    os.environ["AZURE_API_BASE"] = os.getenv("AZURE_OPENAI_ENDPOINT")
-    os.environ["AZURE_API_VERSION"] = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-    model_name = f"azure/{os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o')}"
-else:
     model_name = f"vertex_ai/gemini-2.0-flash-exp"
+else:
+    model_name = f"vertex_ai/{os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-exp')}"
 
 # Classification tool
 def classify_financial_document(filename: str, sample_content: str = None) -> dict:
