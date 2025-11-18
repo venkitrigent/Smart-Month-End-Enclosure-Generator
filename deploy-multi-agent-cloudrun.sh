@@ -62,7 +62,7 @@ deploy_agent() {
     
     cd - > /dev/null
     
-    echo "✅ ${SERVICE_NAME} deployed: $SERVICE_URL"
+    echo "✅ ${SERVICE_NAME} deployed: $SERVICE_URL" >&2
     echo "$SERVICE_URL"
 }
 
@@ -81,6 +81,14 @@ echo ""
 echo "═══════════════════════════════════════════════════════════════"
 echo "Deploying orchestrator-agent..."
 echo "═══════════════════════════════════════════════════════════════"
+echo "Using agent URLs:"
+echo "  CLASSIFIER_URL=$CLASSIFIER_URL"
+echo "  EXTRACTOR_URL=$EXTRACTOR_URL"
+echo "  CHECKLIST_URL=$CHECKLIST_URL"
+echo "  ANALYTICS_URL=$ANALYTICS_URL"
+echo "  CHATBOT_URL=$CHATBOT_URL"
+echo "  REPORT_URL=$REPORT_URL"
+echo ""
 
 cd agents/orchestrator
 
@@ -92,7 +100,19 @@ gcloud run deploy orchestrator-agent \
     --cpu 2 \
     --timeout 300 \
     --max-instances 10 \
-    --set-env-vars "GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GCP_REGION=$REGION,BIGQUERY_DATASET=$BIGQUERY_DATASET,VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL,GEMINI_MODEL=$GEMINI_MODEL,ENVIRONMENT=production,API_KEYS=$API_KEYS,CLASSIFIER_URL=$CLASSIFIER_URL,EXTRACTOR_URL=$EXTRACTOR_URL,CHECKLIST_URL=$CHECKLIST_URL,ANALYTICS_URL=$ANALYTICS_URL,CHATBOT_URL=$CHATBOT_URL,REPORT_URL=$REPORT_URL"
+    --set-env-vars GOOGLE_CLOUD_PROJECT=$PROJECT_ID \
+    --set-env-vars GCP_REGION=$REGION \
+    --set-env-vars BIGQUERY_DATASET=$BIGQUERY_DATASET \
+    --set-env-vars VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL \
+    --set-env-vars GEMINI_MODEL=$GEMINI_MODEL \
+    --set-env-vars ENVIRONMENT=production \
+    --set-env-vars API_KEYS=$API_KEYS \
+    --set-env-vars CLASSIFIER_URL=$CLASSIFIER_URL \
+    --set-env-vars EXTRACTOR_URL=$EXTRACTOR_URL \
+    --set-env-vars CHECKLIST_URL=$CHECKLIST_URL \
+    --set-env-vars ANALYTICS_URL=$ANALYTICS_URL \
+    --set-env-vars CHATBOT_URL=$CHATBOT_URL \
+    --set-env-vars REPORT_URL=$REPORT_URL
 
 ORCHESTRATOR_URL=$(gcloud run services describe orchestrator-agent \
     --region $REGION \
