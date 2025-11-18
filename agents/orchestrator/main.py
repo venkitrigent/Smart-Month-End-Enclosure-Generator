@@ -192,14 +192,13 @@ QUALITY STANDARDS:
 AGENT_DIR = Path(__file__).parent
 app = get_fast_api_app(agents_dir=str(AGENT_DIR), web=False)
 
-@app.post("/process-upload")
-async def process_upload(
+@app.post("/upload")
+async def upload_single(
     file: UploadFile = File(...),
     user_id: str = Form("demo_user")
 ):
-    """Orchestrate complete document processing workflow"""
+    """Upload and process single document (frontend endpoint)"""
     content = await file.read()
-    # Convert bytes to string for the tool function
     content_str = content.decode('utf-8') if isinstance(content, bytes) else content
     result = orchestrate_document_processing(
         file.filename,
@@ -207,6 +206,86 @@ async def process_upload(
         user_id
     )
     return result
+
+@app.post("/process-upload")
+async def process_upload(
+    file: UploadFile = File(...),
+    user_id: str = Form("demo_user")
+):
+    """Orchestrate complete document processing workflow (alias for /upload)"""
+    return await upload_single(file, user_id)
+
+@app.post("/upload-multiple")
+async def upload_multiple(
+    files: List[UploadFile] = File(...),
+    user_id: str = Form(default="demo_user")
+):
+    """Upload and process multiple documents"""
+    results = []
+    errors = []
+    files_processed = 0
+    files_failed = 0
+    
+    for file in files:
+        try:
+            content = await file.read()
+            content_str = content.decode('utf-8') if isinstance(content, bytes) else content
+            result = orchestrate_document_processing(
+                file.filename,
+                content_str,
+                user_id
+            )
+            
+            if result.get("status") == "success":
+                files_processed += 1
+                results.append({
+                    "filename": file.filename,
+                    "doc_type": result.get("classification", {}).get("doc_type", "unknown"),
+                    "rows_processed": result.get("extraction", {}).get("row_count", 0),
+                    **result
+                })
+            else:
+                files_failed += 1
+                errors.append({
+                    "filename": file.filename,
+                    "error": result.get("error", "Unknown error")
+                })
+        except Exception as e:
+            files_failed += 1
+            errors.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+    
+    # Generate report if all files processed successfully
+    report = None
+    if files_processed > 0 and files_failed == 0:
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                checklist_response = await client.get(f"{CHECKLIST_URL}/status/{user_id}")
+                checklist = checklist_response.json()
+                
+                report_response = await client.post(
+                    f"{REPORT_URL}/generate",
+                    json={
+                        "user_id": user_id,
+                        "documents": results,
+                        "checklist": checklist,
+                        "analytics": {},
+                        "report_type": "executive"
+                    }
+                )
+                report = report_response.json()
+        except Exception as e:
+            pass  # Report generation is optional
+    
+    return {
+        "files_processed": files_processed,
+        "files_failed": files_failed,
+        "results": results,
+        "errors": errors,
+        "report": report
+    }
 
 @app.post("/generate-report")
 async def generate_report(user_id: str = Form(...)):
@@ -274,6 +353,41 @@ async def chat(
             "error": str(e),
             "response": "I'm having trouble connecting. Please try again."
         }
+
+@app.get("/checklist")
+async def get_checklist(user_id: str = "demo_user"):
+    """Get checklist status for user"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{CHECKLIST_URL}/status/{user_id}")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {
+                    "checklist": {},
+                    "required_docs": {},
+                    "completion_rate": "0/0",
+                    "percentage": 0,
+                    "missing": []
+                }
+    except Exception as e:
+        return {
+            "checklist": {},
+            "required_docs": {},
+            "completion_rate": "0/0",
+            "percentage": 0,
+            "missing": [],
+            "error": str(e)
+        }
+
+@app.get("/me")
+async def get_user_info():
+    """Get current user information"""
+    return {
+        "user_id": "demo_user",
+        "email": "demo@example.com",
+        "authenticated": True
+    }
 
 @app.get("/health")
 async def health():

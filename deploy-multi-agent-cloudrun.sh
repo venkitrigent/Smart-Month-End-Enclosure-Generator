@@ -33,13 +33,15 @@ deploy_agent() {
     local SERVICE_NAME=$1
     local SOURCE_DIR=$2
     
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "Deploying ${SERVICE_NAME}..."
-    echo "═══════════════════════════════════════════════════════════════"
+    # Send all messages to stderr (>&2) so they don't get captured
+    echo "" >&2
+    echo "═══════════════════════════════════════════════════════════════" >&2
+    echo "Deploying ${SERVICE_NAME}..." >&2
+    echo "═══════════════════════════════════════════════════════════════" >&2
     
     cd $SOURCE_DIR
     
+    # Redirect gcloud output to stderr so only URL is captured
     gcloud run deploy ${SERVICE_NAME} \
         --source . \
         --region $REGION \
@@ -54,27 +56,31 @@ deploy_agent() {
         --set-env-vars VERTEX_EMBEDDING_MODEL=$VERTEX_EMBEDDING_MODEL \
         --set-env-vars GEMINI_MODEL=$GEMINI_MODEL \
         --set-env-vars ENVIRONMENT=production \
-        --set-env-vars API_KEYS=$API_KEYS
+        --set-env-vars API_KEYS=$API_KEYS >&2
     
+    # Get the service URL (this is the only thing that goes to stdout)
     SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} \
         --region $REGION \
-        --format 'value(status.url)')
+        --format 'value(status.url)' 2>/dev/null)
     
     cd - > /dev/null
     
+    # Send success message to stderr
     echo "✅ ${SERVICE_NAME} deployed: $SERVICE_URL" >&2
+    
+    # Only output the URL to stdout (this gets captured)
     echo "$SERVICE_URL"
 }
 
 # Deploy agents
 echo "Starting deployment..."
 
-CLASSIFIER_URL=$(deploy_agent "classifier-agent" "agents/classifier")
-EXTRACTOR_URL=$(deploy_agent "extractor-agent" "agents/extractor")
-CHECKLIST_URL=$(deploy_agent "checklist-agent" "agents/checklist")
-ANALYTICS_URL=$(deploy_agent "analytics-agent" "agents/analytics")
-CHATBOT_URL=$(deploy_agent "chatbot-agent" "agents/chatbot")
-REPORT_URL=$(deploy_agent "report-agent" "agents/report")
+CLASSIFIER_URL=$(deploy_agent "classifier-agent" "agents/classifier" | tr -d '\n\r ')
+EXTRACTOR_URL=$(deploy_agent "extractor-agent" "agents/extractor" | tr -d '\n\r ')
+CHECKLIST_URL=$(deploy_agent "checklist-agent" "agents/checklist" | tr -d '\n\r ')
+ANALYTICS_URL=$(deploy_agent "analytics-agent" "agents/analytics" | tr -d '\n\r ')
+CHATBOT_URL=$(deploy_agent "chatbot-agent" "agents/chatbot" | tr -d '\n\r ')
+REPORT_URL=$(deploy_agent "report-agent" "agents/report" | tr -d '\n\r ')
 
 # Deploy orchestrator with agent URLs
 echo ""
