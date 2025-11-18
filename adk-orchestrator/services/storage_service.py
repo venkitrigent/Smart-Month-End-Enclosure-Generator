@@ -138,6 +138,21 @@ class StorageService:
         errors = self.bq_client.insert_rows_json(table_ref, rows)
         return len(errors) == 0
     
+    def verify_embeddings(self, document_id: str) -> bool:
+        """Verify that embeddings were created for a document"""
+        try:
+            query = f"""
+            SELECT COUNT(*) as count
+            FROM `{self.project_id}.{self.dataset_id}.embeddings`
+            WHERE document_id = '{document_id}'
+            """
+            results = self.bq_client.query(query).result()
+            count = list(results)[0]['count']
+            return count > 0
+        except Exception as e:
+            print(f"Error verifying embeddings: {e}")
+            return False
+    
     def query_data(self, doc_type: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """Query structured data from BigQuery"""
         query = f"""

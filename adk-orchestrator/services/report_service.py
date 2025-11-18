@@ -118,6 +118,163 @@ Checklist Completion: {summary['checklist_completion']['percentage']}%
             text += f"  {i}. {rec}\n"
         
         return text
+    
+    def generate_detailed_text_report(self, report_data: Dict[str, Any]) -> str:
+        """Generate a comprehensive human-readable text report with deep analysis"""
+        
+        summary = report_data["summary"]
+        analytics = report_data.get("analytics", {})
+        
+        text = f"""
+╔══════════════════════════════════════════════════════════════════════════╗
+║                     MONTH-END CLOSE ANALYSIS REPORT                      ║
+╚══════════════════════════════════════════════════════════════════════════╝
+
+Report ID: {report_data['report_id']}
+Generated: {report_data['generated_at']}
+User ID: {report_data['user_id']}
+
+═══════════════════════════════════════════════════════════════════════════
+                              EXECUTIVE SUMMARY
+═══════════════════════════════════════════════════════════════════════════
+
+Overall Status: {summary['status']}
+Total Documents Processed: {summary['total_documents']}
+Total Data Rows: {analytics.get('total_rows', 0):,}
+Checklist Completion: {summary['checklist_completion']['percentage']}% ({summary['checklist_completion']['completed']}/{summary['checklist_completion']['total']} items)
+
+"""
+        
+        # Financial Summary
+        if 'financial_summary' in analytics:
+            fin = analytics['financial_summary']
+            text += f"""
+═══════════════════════════════════════════════════════════════════════════
+                            FINANCIAL SUMMARY
+═══════════════════════════════════════════════════════════════════════════
+
+Total Transaction Amount: ${fin.get('total_amount', 0):,.2f}
+Number of Transactions: {fin.get('transaction_count', 0):,}
+Average Transaction Value: ${fin.get('avg_amount', 0):,.2f}
+
+"""
+        
+        # Documents by Type
+        text += f"""
+═══════════════════════════════════════════════════════════════════════════
+                          DOCUMENTS BY TYPE
+═══════════════════════════════════════════════════════════════════════════
+
+"""
+        for doc_type, count in summary['documents_by_type'].items():
+            text += f"  • {doc_type.replace('_', ' ').title()}: {count} document(s)\n"
+        
+        # Checklist Status
+        text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                          CHECKLIST STATUS
+═══════════════════════════════════════════════════════════════════════════
+
+"""
+        for doc_type, status in report_data['checklist'].items():
+            icon = "✓" if status == "uploaded" else "✗"
+            status_text = "UPLOADED" if status == "uploaded" else "MISSING"
+            text += f"  {icon} {doc_type.replace('_', ' ').title()}: {status_text}\n"
+        
+        # Anomalies and Issues
+        anomalies = analytics.get('anomalies', [])
+        if anomalies:
+            text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                    ANOMALIES DETECTED ({len(anomalies)})
+═══════════════════════════════════════════════════════════════════════════
+
+"""
+            # Group by severity
+            high_severity = [a for a in anomalies if a.get('severity') == 'high']
+            medium_severity = [a for a in anomalies if a.get('severity') == 'medium']
+            
+            if high_severity:
+                text += "HIGH SEVERITY ISSUES:\n"
+                for i, anomaly in enumerate(high_severity, 1):
+                    text += f"\n  {i}. {anomaly.get('type', 'Unknown').replace('_', ' ').upper()}\n"
+                    text += f"     File: {anomaly.get('filename', 'N/A')}\n"
+                    text += f"     Description: {anomaly.get('description', 'N/A')}\n"
+                    text += f"     Recommendation: {anomaly.get('recommendation', 'Review this issue')}\n"
+            
+            if medium_severity:
+                text += "\nMEDIUM SEVERITY ISSUES:\n"
+                for i, anomaly in enumerate(medium_severity, 1):
+                    text += f"\n  {i}. {anomaly.get('type', 'Unknown').replace('_', ' ').upper()}\n"
+                    text += f"     File: {anomaly.get('filename', 'N/A')}\n"
+                    text += f"     Description: {anomaly.get('description', 'N/A')}\n"
+                    text += f"     Recommendation: {anomaly.get('recommendation', 'Review this issue')}\n"
+        else:
+            text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                         DATA QUALITY ANALYSIS
+═══════════════════════════════════════════════════════════════════════════
+
+✓ No anomalies detected in the uploaded data
+✓ All data appears to be within normal ranges
+✓ No missing or duplicate values found
+
+"""
+        
+        # Recommendations
+        text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                          RECOMMENDATIONS
+═══════════════════════════════════════════════════════════════════════════
+
+"""
+        for i, rec in enumerate(report_data['recommendations'], 1):
+            text += f"  {i}. {rec}\n"
+        
+        # Next Steps
+        text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                            NEXT STEPS
+═══════════════════════════════════════════════════════════════════════════
+
+"""
+        if summary['status'] == 'COMPLETE':
+            text += """  ✓ All required documents have been uploaded
+  ✓ Review the anomalies section above (if any)
+  ✓ Verify financial totals match your records
+  ✓ Proceed with month-end close procedures
+  ✓ Archive this report for audit purposes
+"""
+        elif summary['status'] == 'NEARLY_COMPLETE':
+            text += f"""  • Upload remaining documents: {', '.join(summary['checklist_completion'].get('missing', []))}
+  • Review and resolve any detected anomalies
+  • Verify data completeness
+  • Re-generate report after uploading missing documents
+"""
+        else:
+            text += f"""  • Upload missing required documents: {', '.join([d for d, s in report_data['checklist'].items() if s == 'missing'])}
+  • Ensure all CSV files are properly formatted
+  • Review data quality before proceeding
+  • Contact support if you encounter issues
+"""
+        
+        text += f"""
+
+═══════════════════════════════════════════════════════════════════════════
+                          END OF REPORT
+═══════════════════════════════════════════════════════════════════════════
+
+This report was automatically generated by the Smart Month-End Close system.
+For questions or support, please contact your system administrator.
+
+"""
+        
+        return text
 
 
 # Global instance

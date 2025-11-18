@@ -123,12 +123,19 @@ async def upload_document(
                 columns=extraction["columns"]
             )
         
+        # Verify embeddings were created
+        embeddings_verified = False
+        if extraction.get("embeddings_generated", 0) > 0:
+            embeddings_verified = storage_service.verify_embeddings(document_id)
+        
         return {
             "status": "success",
             "document_id": document_id,
             "classification": classification,
             "extraction": extraction,
-            "checklist": checklist
+            "checklist": checklist,
+            "embeddings_verified": embeddings_verified,
+            "embeddings_count": extraction.get("embeddings_generated", 0)
         }
     
     except Exception as e:
@@ -221,9 +228,34 @@ async def upload_multiple_documents(
 async def get_checklist(
     current_user: dict = Depends(auth_service.get_current_user)
 ):
-    """Get checklist status for current user"""
+    """Get checklist status for current user with document counts"""
     from month_end_agent.agent import check_checklist_status
-    return check_checklist_status(current_user["user_id"])
+    user_id = current_user["user_id"]
+    
+    # Get checklist status
+    checklist_data = check_checklist_status(user_id)
+    
+    # Get actual document counts from BigQuery
+    try:
+        doc_query = f"""
+        SELECT doc_type, COUNT(*) as count
+        FROM `{os.getenv('GOOGLE_CLOUD_PROJECT')}.{os.getenv('BIGQUERY_DATASET', 'financial_close')}.documents`
+        WHERE user_id = '{user_id}'
+        GROUP BY doc_type
+        """
+        results = storage_service.bq_client.query(doc_query).result()
+        doc_counts = {row['doc_type']: row['count'] for row in results}
+        
+        # Update checklist with actual counts
+        for doc_type in checklist_data.get('checklist', {}).keys():
+            if doc_type in doc_counts or doc_type.replace('_', '') in doc_counts:
+                checklist_data['checklist'][doc_type] = 'uploaded'
+        
+        checklist_data['document_counts'] = doc_counts
+    except Exception as e:
+        print(f"Error getting document counts: {e}")
+    
+    return checklist_data
 
 @app.get("/data/{doc_type}")
 async def get_data(
@@ -282,20 +314,55 @@ async def chat_with_data(
     # Get chat history for context
     history = storage_service.get_chat_history(session_id)
     
-    # Use chatbot agent to respond
-    # In production, this would call the ADK agent properly
-    # For now, return a structured response
+    # Use RAG to search for relevant data
     from month_end_agent.agent import search_documents
     
     # Search for relevant data
-    search_results = search_documents(message, user_id, top_k=3)
+    search_results = search_documents(message, user_id, top_k=5)
     
-    # Generate response (simplified)
-    if search_results.get("results"):
-        context = "\n".join([r.get("chunk_text", "") for r in search_results["results"][:2]])
-        response = f"Based on your uploaded data:\n\n{context}\n\nHow can I help you further?"
+    # Generate response using Azure OpenAI if available
+    response = ""
+    if search_results.get("results") and len(search_results["results"]) > 0:
+        # Build context from search results
+        context_parts = []
+        for idx, result in enumerate(search_results["results"][:3], 1):
+            context_parts.append(f"[Source {idx}] {result.get('chunk_text', '')}")
+        
+        context = "\n\n".join(context_parts)
+        
+        # Try to use Azure OpenAI for intelligent response
+        if os.getenv("AZURE_OPENAI_API_KEY"):
+            try:
+                from services.azure_llm_service import azure_llm
+                
+                # Build conversation history
+                history_text = "\n".join([
+                    f"{msg.get('role', 'user')}: {msg.get('content', '')}"
+                    for msg in history[-5:]  # Last 5 messages
+                ])
+                
+                ai_response = azure_llm.chat_with_context(
+                    query=message,
+                    context=context,
+                    history=history_text
+                )
+                response = ai_response.get("response", "")
+            except Exception as e:
+                print(f"Azure OpenAI chat failed: {e}")
+                response = f"Based on your uploaded data:\n\n{context}\n\nI found {len(search_results['results'])} relevant records. How can I help you analyze this further?"
+        else:
+            # Fallback response
+            response = f"Based on your uploaded data, I found {len(search_results['results'])} relevant records:\n\n{context}\n\nHow can I help you analyze this further?"
     else:
-        response = "I don't have enough data to answer that. Please upload documents first."
+        # No results found
+        response = "I couldn't find relevant data to answer your question. This could mean:\n\n"
+        response += "1. No documents have been uploaded yet\n"
+        response += "2. The uploaded documents don't contain information related to your query\n"
+        response += "3. Try rephrasing your question\n\n"
+        response += "Please upload financial documents first, or try asking about:\n"
+        response += "- Document upload status\n"
+        response += "- Checklist completion\n"
+        response += "- Available document types"
     
     # Save assistant response
     storage_service.save_chat_message(session_id, "assistant", response)
@@ -305,7 +372,9 @@ async def chat_with_data(
         "message": message,
         "response": response,
         "search_results": search_results.get("results", []),
-        "history_length": len(history) + 2
+        "results_count": len(search_results.get("results", [])),
+        "history_length": len(history) + 2,
+        "user_id": user_id
     }
 
 if __name__ == "__main__":

@@ -1,23 +1,35 @@
 """
 Azure OpenAI Service for LLM calls
-Replaces local model hosting with Azure ChatOpenAI
+Provides direct Azure OpenAI integration for classification, analysis, and chat.
+Note: ADK agents use LiteLLM which handles Azure OpenAI automatically via environment variables.
 """
 import os
 from typing import List, Dict
 from openai import AzureOpenAI
 
 class AzureLLMService:
-    """Service for Azure OpenAI integration"""
+    """Service for Azure OpenAI integration (for non-ADK direct calls)"""
     
     def __init__(self):
         """Initialize Azure OpenAI client"""
-        self.client = AzureOpenAI(
-            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
-        )
-        self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4")
-        self.embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
+        # Check if Azure OpenAI is configured
+        if not os.getenv("AZURE_OPENAI_API_KEY"):
+            print("⚠️ Azure OpenAI not configured. Set AZURE_OPENAI_API_KEY in .env")
+            self.client = None
+            return
+        
+        try:
+            self.client = AzureOpenAI(
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT")
+            )
+            self.deployment_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-4o")
+            self.embedding_deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "text-embedding-ada-002")
+            print(f"✅ Azure OpenAI initialized: {self.deployment_name}")
+        except Exception as e:
+            print(f"❌ Failed to initialize Azure OpenAI: {e}")
+            self.client = None
     
     def chat_completion(
         self, 
@@ -36,6 +48,9 @@ class AzureLLMService:
         Returns:
             Generated response text
         """
+        if not self.client:
+            return "Azure OpenAI not configured. Please set AZURE_OPENAI_API_KEY."
+        
         try:
             response = self.client.chat.completions.create(
                 model=self.deployment_name,
@@ -45,7 +60,7 @@ class AzureLLMService:
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"Azure OpenAI error: {str(e)}")
+            print(f"❌ Azure OpenAI error: {str(e)}")
             return f"Error generating response: {str(e)}"
     
     def generate_response(
@@ -195,6 +210,46 @@ Documents by Type: {report_data.get('documents_by_type', {})}
 Provide a 3-4 sentence executive summary highlighting key points and any concerns."""
         
         return self.generate_response(prompt, system_message, temperature=0.5)
+    
+    def chat_with_context(self, query: str, context: str, history: str = "") -> Dict:
+        """
+        Chat with RAG context from uploaded documents
+        
+        Args:
+            query: User's question
+            context: Retrieved context from embeddings
+            history: Conversation history
+            
+        Returns:
+            Response dictionary
+        """
+        system_message = """You are a helpful financial assistant for month-end close processes.
+        Answer questions based on the provided context from uploaded financial documents.
+        
+        Guidelines:
+        - Always reference specific data from the context
+        - Be precise with numbers and financial information
+        - If the context doesn't contain the answer, say so clearly
+        - Provide actionable insights when possible
+        - Keep responses concise but informative"""
+        
+        prompt = f"""Context from uploaded documents:
+{context}
+
+Previous conversation:
+{history}
+
+User question: {query}
+
+Provide a helpful, accurate answer based on the context above."""
+        
+        response = self.generate_response(prompt, system_message, temperature=0.3)
+        
+        return {
+            "response": response,
+            "model": "azure-openai",
+            "deployment": self.deployment_name
+        }
 
 # Global instance
 azure_llm = AzureLLMService()
